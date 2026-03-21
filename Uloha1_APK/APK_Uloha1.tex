@@ -1,0 +1,245 @@
+\documentclass[12pt]{article}
+\usepackage[czech]{babel}
+\usepackage{graphicx}
+\usepackage{parskip}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{microtype}
+\lstset{
+    language=Python,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},  
+    commentstyle=\color{gray},   
+    stringstyle=\color{red},   
+    breaklines=true,             
+    frame=single,
+    captionpos=b
+}
+
+\addto\captionsczech{
+\renewcommand{\lstlistingname}{Kód}}
+\pagestyle{empty}
+\begin{document}
+
+\begin{center}
+    {\large\scshape Univerzita Karlova} \\
+    {\large\scshape Přírodovědecká fakulta} \\
+
+    \includegraphics[width=0.7\textwidth]{logo_prf}
+        
+    {\large Algoritmy počítačové kartografie} \\
+    
+    \vspace{2cm}
+    
+    {\Large Úloha č. 1: Geometrické vyhledávání bodu} \\    
+
+    \vspace{3cm}
+    
+    {\large Matěj Hrabal, Kateřina Spudilová} \\
+    {\large\scshape 1. n-gkdpz} \\
+    
+    \vfill
+    
+    {\large Praha 2026} \\
+\end{center}
+
+
+\newpage
+{\large\textbf{Zadání}}
+
+\begin{center}
+    \includegraphics[width=1\linewidth]{zadani1.png}
+\end{center}
+
+\underline {Údaje o bonusových úlohách}
+
+Ze zadaných kroků byly řešeny následující:
+\begin{itemize}
+    \item Detekce bodu rozlišující stavy uvnitř, vně polygonu. (10b)
+    \item Analýza polohy bodu (uvnitř/vně) metodou \emph{Winding Number Algorithm}. (+10b)
+    \item Ošetření singulárního případu u \emph{Winding Number Algorithm}: bod leží na hraně polygonu. (+5b)
+    \item Ošetření singulárního případu u \emph{Ray Crossing Algorithm}: bod leží na hraně polygonu. (+5b)
+    \item Ošetření singulárního případu u obou algoritmů: bod je totožný s vrcholem jednoho či více polygonů. (+2b)
+    \item Zvýraznění všech polygonů pro oba výše uvedené singulární případy. (+3b)
+\end{itemize}
+
+
+\newpage
+{\large\textbf {Teoretický rozbor problému}}
+
+\textbf{Point Location Problem}
+
+\emph{Point Location Problem}, také označovaný jako \emph{Point in Polygon} je problémem řešícím prostorový vztah mezi určitým bodem a polygonem. Je široce využíván zejména v oblasti počítačové grafiky, robotiky či geoinformačních systémů (GIS). Jeho řešení pak odpovídá na otázku, zda je daný bod $q$ prvkem polygonu $P$.
+
+Obtížnost řešení tohoto problému podstatně závisí na konvexitě polygonu. Za konvexní polygon lze považovat takový polygon $P$, kde úsečka $AB$ leží uvnitř $P$ a dané dva body $A, B$ jsou součástí $P$. Zároveň pro takový polygon platí, že žádný vnitřní úhel není větší než 180° a každá přímka, na které leží hrana polygonu, definuje polorovinu, v níž leží celý zbytek tohoto polygonu. Díky využití těchto vlastností je řešení Point Location Problem pro konvexní polygony výpočetně méně náročné než u polygonů nekonvexních. Toho využívá optimalizovaná verze tzv. \emph{LeftOn testu}, kdy lze s využitím binárního dělení hran dosáhnout logaritmické složitosti $O(\log n)$. Pro obecné nekonvexní polygony však tato optimalizace není uplatnitelná a je nutné využít univerzální algoritmy s lineární složitostí $O(n)$, jako jsou \emph{Ray Crossing} či \emph{Winding Number}.
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=8cm]{typypolygonu.png}
+    \caption{Typy polygonů z hlediska konvexity (Alciatore, Miranda 1995)}
+\end{figure}
+
+\textbf{Ray Crossing algoritmus}
+
+\emph{Ray Crossing} algoritmus, též známý jako \emph{Ray Casting}, je jednou z nejpoužívanějších metod řešících \emph{Point Location Problem}. Jeho princip je založen na platnosti Jordanovy věty o křivce. Ta říká, že každá jednoduchá uzavřená křivka v rovině rozděluje rovinu na právě dvě disjunktní oblasti: vnitřní (ohraničenou) a vnější (neohraničenou). Z této věty pak vyplývá zásadní topologická vlastnost: jakákoliv polopřímka vycházející z bodu uvnitř křivky má s hranicí polygonu lichý počet průsečíků, aby se dostala do vnější oblasti. Naopak polopřímka vycházející z vnější oblasti má s hranicí polygonu sudý počet průsečíků.
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=5cm]{raycrossing.png}
+    \caption{Princip \emph{Ray Crossing} algoritmu (O'Rourke 2005)}
+    {\footnotesize 
+    \begin{align*}
+        q_1: k_1 = 5 &\implies k_1 \equiv 1 \pmod 2 \implies q_1 \in P \\
+        q_2: k_2 = 2 &\implies k_2 \equiv 0 \pmod 2 \implies q_2 \notin P \\
+        q_3: k_3 = 5 &\implies k_3 \equiv 1 \pmod 2 \implies q_3 \in P
+    \end{align*}
+    }
+\end{figure}
+
+\newpage
+Samotný algoritmus vede z analyzovaného bodu $q(x_q, y_q)$ paprsek (polopřímku) v libovolném směru. Následně je testována každá hrana polygonu $P$ a vyhodnocen její počet průsečíků s paprskem.
+\begin{align*}
+    q \in P &\iff k \equiv 1 \pmod 2 \\
+    q \notin P &\iff k \equiv 0 \pmod 2
+\end{align*}
+
+Nevýhodou základní implementace \emph{Ray Crossing} algoritmu je jeho náchylnost k chybám v singulárních případech. To jsou případy, kdy paprsek prochází vrcholem polygonu, bod leží přímo na jeho hraně nebo polygon obsahuje vodorovné hrany. Pro zajištění robustnosti řešení je proto nutné implementovat dodatečné logické podmínky, které tyto stavy detekují a ošetřují.
+
+\textbf{Winding Number algoritmus}
+
+ Podstata tohoto algoritmu tkví v analogii pozorovatele stojícího v testovaném bodě $q$, který sleduje bod $p$ vykonávající kompletní oběh po hranici polygonu v protisměru hodinových ručiček. Zatímco bod $p$ prochází jednotlivé segmenty, pozorovatel se plynule otáčí tak, aby jej neustále sledoval, přičemž po návratu do výchozí pozice musí být celkový úhlový posun $\omega$ celočíselným násobkem plného kruhu. Pokud se bod $q$ nachází uvnitř polygonu, pozorovatel se otočí o $2\pi$ radiánů nebo jejich násobek, zatímco u bodů vně polygonu je výsledný součet orientovaných úhlů roven nule.
+
+Matematicky je oběhové číslo $\Omega$ definováno jako podíl celkové sumy orientovaných rotací $\omega_i$ nad všemi vrcholy polygonu a hodnoty $2\pi$. 
+
+\begin{align*}
+    \Omega(q, P) = \frac{1}{2\pi} \sum_{i=1}^{n} \omega(p_i, q, p_{i+1})
+\end{align*}
+
+Tento vztah vyžaduje určení orientace každého úhlu, k čemuž se v praktických algoritmech využívá test polohy bodu $q$ vzhledem k orientované přímce tvořené hranou $(p_i, p_{i+1})$. Tato orientace je exaktně dána znaménkem determinantu $t$, který určuje, zda bod $q$ leží v levé či pravé polorovině vzhledem k dané hraně.
+
+Vzhledem k vysoké výpočetní náročnosti goniometrických funkcí se však v praktických implementacích dává přednost diskrétnímu přístupu k výpočtu oběhového čísla. Tato metoda transformuje problém na sledování křížení hran polygonu s pevnou polopřímkou (obvykle kladnou poloosou $x$) v lokálním souřadnicovém systému, kde testovaný bod $q$ představuje jeho počátek. Jednotlivým hranám jsou přiřazeny hodnoty na základě směru jejich průchodu přes tuto poloosu: hrana směřující vzhůru přičítá k celkové sumě hodnotu 1, zatímco hrana směřující dolů hodnotu 1 odčítá. Bod je následně považován za vnitřní prvek polygonu tehdy, pokud je výsledná suma (tedy hodnota $\Omega$) nenulová.
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=8cm]{windingnumber.png}
+    \caption{Diskrétní přístup k výpočtu \emph{Winding Number} (Alciatore, Miranda 1995)}
+\end{figure}
+
+\newpage
+{\large\textbf {Popis implementace algoritmů}}
+
+Za účelem řešení této úlohy byla vyvinuta interaktivní aplikace v programovacím jazyce Python ve spojení s frameworkem \emph{PyQt6}. Vnitřní reprezentace prostorových dat v aplikaci využívá špagetový datový model, v němž jsou polygony chápány jako nezávislé geometrické entity definované uspořádaným seznamem svých vrcholů. Aplikace umožňuje uživateli interaktivní zadávání dat, vizualizaci výsledků prostorových dotazů a přepínání mezi dvěma řešenými algoritmy - \emph{Ray Crossing} a \emph{Winding Number}.
+
+Příprava dat je řešena ve třídě \texttt{Draw}, v níž je implementován seznam polygonů \texttt{self.\_\_polygons}, do kterého je každý uživatelem nakreslený útvar uložen jako objekt \texttt{QPolygonF}. K zadání polohy bodu $q$ slouží metoda \texttt{mousePressEvent}, kde se na základě stavu proměnné \texttt{self.\_\_add\_vertex} rozhoduje, zda kliknutí myší tvoří nový vrchol do aktuálního polygonu či přepisuje souřadnice hledaného bodu.
+
+Následně je po stisknutí tlačítka \emph{Analyze} spuštěna metoda \texttt{analyzePointAndPositionClick}, která si vyžádá uložený bod i seznam polygonů. S těmito daty pak pracují metody reprezentující oba řešené algoritmy: \texttt{getPointPolygonPositionRC} a \texttt{getPointPolygonPositionWN}
+
+\textbf{1. Detekce polohy bodu rozlišující stavy uvnitř, vně polygonu}
+
+V první části úlohy je řešen \emph{Point Location Problem} pomocí \emph{Ray Crossing} algoritmu, který je realizován metodou \texttt{getPointPolygonPositionRC}. Ten postupně prochází všechny hrany zkoumaného polygonu a zároveň transformuje souřadnicový systém tak, aby bod $q$ ležel v jeho počátku. Následně algoritmus pomocí podmínek kontroluje souřadnice $y$ vrcholů a detekuje, zda daná úsečka protíná horizontální paprsek. Pokud ano, pak vypočítá polohu průsečíku a v případě, že tento průsečík leží kladným směrem od analyzovaného bodu, navýší počítadlo. Výpočet je po projití všech hran zakončen operací modulo, kdy lichý počet nalezených průsečíků potvrzuje, že bod leží uvnitř aktuálně testovaného polygonu.
+
+\newpage
+\begin{lstlisting}[caption={Procházení hran polygonu pomocí for cyklu}]
+#Process all polygon edges
+for i in range(n):
+    
+    p_i = pol[i]
+    p_i1 = pol[(i+1)%n]
+    
+    if self.PointOnBoundary(q, p_i, p_i1):
+        return -1
+    
+    #Start point of the edge
+    xi = pol[i].x() - q.x()
+    yi = pol[i].y() - q.y()
+    
+    #End point of the edge        
+    xi1 = pol[(i+1)%n].x() - q.x()
+    yi1 = pol[(i+1)%n].y() - q.y()
+    
+    #Find suitable segment
+    if (yi1 > 0) and (yi<= 0) or (yi > 0) and (yi1 <= 0):
+        
+        #Compute intersection
+        xm = (xi1 * yi - xi * yi1) / (yi1 - yi) 
+        
+        #Correct intersection
+        if xm > 0:
+            
+            #Increment number of intersections
+            k = k + 1
+
+\end{lstlisting}
+
+Následuje grafické zvýraznění nalezeného polygonu ve frameworku QT. Ve chvíli, kdy algoritmus vrátí hodnotu reprezentující shodu, tak se spustí metoda \texttt{setHighlightedPolygon}. Pomocí překreslující události \texttt{paintEvent} se tento polygon vybarví tyrkysovou barvou.
+
+\textbf{2. Analýza polohy bodu (uvnitř, vně) metodou Winding Number Algorithm}
+
+Druhá část úlohy řeší \emph{Point Location Problem} pomocí algoritmu \emph{Winding Number}, a to prostřednictvím metody \texttt{getPointPolygonPositionWN}. Na počátku je inicializována proměnná \texttt{omega\_sum = 0}, do které se budou postupně sčítat dílčí úhly, rovněž je definována toleranční hodnota \texttt{epsilon}. Následuje cyklus procházející všechny hrany polygonu, kde je do proměnných $p\_i$ a $p\_i1$ vždy uložen počáteční a koncový vrchol aktuální úsečky. Pokud volání metody \texttt{PointOnBoundary} neodhalí, že bod $q$ leží přesně na hranici (což by rovnou ukončilo výpočet s hodnotou -1), program přistoupí k výpočtu úhlu. Vytvoří dva vektory směřující od analyzovaného bodu k oběma vrcholům a pomocí euklidovských délek a skalárního součinu \texttt{dot\_product} vypočítá hodnotu cosinus.
+
+\newpage
+Ta je nejprve ořezána pomocí funkcí \texttt{max} a \texttt{min} do bezpečného intervalu, následně je z ní pomocí funkce \texttt{math.acos} získána velikost dílčího úhlu \texttt{omega\_i}. Posléze je nutné určit prostorovou orientaci úhlu. K tomu slouží výpočet determinantu z vektorů definujících aktuální hranu a analyzovaný bod. Je-li hodnota determinantu kladná (bod leží vlevo), úhel se do celkové sumy přičte. Je-li záporná (bod leží vpravo), úhel se odečte.
+
+\textbf{3. Ošetření singulárního případu u Winding Number Algorithm: bod leží na hraně polygonu}
+
+V rámci implementace algoritmu \emph{Winding Number} je stav, kdy bod leží na hraně polygonu řeše na počátku každého iteračního kroku v metodě \texttt{getPointPolygonPositionWN}. Ještě před zahájením výpočtu směrových vektorů a úhlů je volána evaluační metoda \tetxtt{PointOnBoundary}, jíž jsou jako argumenty předány souřadnice zkoumaného bodu $q$ a obou definujících vrcholů aktuální orientované hrany $p\_i$ a $p\_i1$. Uvnitř metody \texttt{PointOnBoundary} je detekce incidence bodu a hrany algoritmizována do dvou na sebe navazujících analytických fází: testu kolinearity a testu prostorového omezení.
+
+\begin{lstlisting}[caption={Řešení singulárního případu: bod na hraně polygonu}]
+def PointOnBoundary(self, q:QPointF, p1:QPointF, p2:QPointF):
+epsilon = 0.0001
+
+#Vertex test
+if(abs(q.x() - p1.x()) < epsilon and abs(q.y() - p1.y()) < epsilon):
+    return True
+
+#Edge test
+det = (p2.x() - p1.x()) * (q.y() - p1.y()) - (p2.y() - p1.y()) * (q.x() - p1.x())
+if abs(det) < epsilon:
+    min_x, max_x = min(p1.x(), p2.x()), max(p1.x(), p2.x())
+    min_y, max_y = min(p1.y(), p2.y()), max(p1.y(), p2.y())
+    if min_x - epsilon <= q.x() <= max_x + epsilon and min_y - epsilon <= q.y() <= max_y + epsilon:
+        return True
+return False
+\end{lstlisting}
+
+Následně je pomocí funkcí \texttt{min} a \texttt{max} vytvořena obálka hrany, která geometricky ověří, zda souřadnice bodu do této konkrétní úsečky spadají. Pokud jsou obě podmínky splněny, výpočet je pro daný polygon ukončen s návratovou hodnotou -1, díky čemuž uživatelské rozhraní dostane signál k odlišnému vizuálnímu zvýraznění topologické singularity.
+
+\newpage
+\textbf{4. Ošetření singulárního případu u Ray Crossing Algorithm: bod leží na hraně polygonu}
+
+Řešení je v případě \emph{Ray Crossing} algoritmu identické, jako u algoritmu \emph{Winding Number}. Na počátku cyklu je opět volána metoda \texttt{PointOnBoundary}.
+
+\textbf{5. Ošetření singulárního případu u obou algoritmů: bod je totožný s vrcholem jednoho či více polygonů}
+
+Řešení topologické singularity, kdy je analyzovaný bod totožný s některým z vrcholů polygonu, je řešeno v rámci metody \texttt{PointOnBoundary}, která je volána hned v úvodu iteračního cyklu obou hlavních algoritmů, tedy u \emph{Ray Crossing} i \emph{Winding Number}. Samotný test shody s vrcholem představuje úplně první geometrické ověření uvnitř této metody. Výpočet zkoumá absolutní rozdíl souřadnic X a Y analyzovaného bodu $q$ a počátečního vrcholu aktuální hrany $p1$. Tím je kolem každého uzlu definováno určité toleranční okolí. Spadají-li souřadnice zkoumaného bodu do tohoto vymezení, metoda vrací pravdivostní hodnotu $True$. Oba algoritmy na tento výsledek pak reagují ukončením výpočtu pro daný polygon s návratovou hodnotou -1. 
+
+\textbf{6. Zvýraznění všech polygonů pro oba výše uvedené singulární případy}
+
+Jakmile evaluační metoda \texttt{PointOnBoundary} detekuje topologickou singularitu, oba hlavní algoritmy vygenerují specifickou návratovou hodnotu -1. Tato hodnota je následně zachycena v prohledávacím cyklu metody \texttt{analyzePointAndPositionClick} a rovněž i metody \texttt{analyzePointAndPositionWNClick}. Dotčený polygon je následně přidán do seznamu \texttt{highlighted\_pols}.
+
+Po otestování celé mapy program volá metodu \texttt{setHighlightedPolygons}. Společně se seznamem všech nalezených tvarů je do této metody předán i logický parametr s hodnotou True, který indikuje právě hraniční stav. Uvnitř vykreslovací metody \texttt{paintEvent} pak program vyhodnotí aktivní stav proměnné \texttt{self.\_\_highlight\_boundary} a namísto tyrkysové výplně změní vlastnosti grafického pera příkazem \texttt{qp.setPen(Qt.GlobalColor.red)}. Všechny dotčené polygony uložené v seznamu jsou následně pomocí cyklu vykresleny na plátno s červeným obrysem.
+
+{\large\textbf {Závěr}}
+
+Vytvořená aplikace představuje plně funkční geoinformatický nástroj pro analýzu prostorových vztahů mezi bodem a polygonovými daty v netopologickém vektorovém modelu. Grafické rozhraní umožňuje uživateli interaktivní digitalizaci prvků a následné spuštění výpočetních metod Ray Crossing nebo Winding Number, přičemž dosažený matematický výsledek je posléze interpretován formou kartografické vizualizace na plátně.
+
+Aplikace však postrádá implementaci vstupně-výstupních operací. Přestože tak grafické uživatelské rozhraní obsahuje tlačítko pro otevření souboru, tato akce není v kódu propojena s žádnou funkcí a aplikace neumožňuje automatizované načítání bodů či polygonů z externích souborů.
+
+\newpage
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=1 \textwidth]{Aplikace.png}
+    \caption{Vzhled aplikace}
+\end{figure}
+
+\newpage
+{\large\textbf {Zdroje}}
+
+O'ROURKE, J. (1998): Computational geometry in C. Cambridge University Press, Cambridge.
+
+PREPARATA, F. P., SHAMOS, M. I. (1985): Computational geometry: An Introduction. Springer, New York.
+
+\end{document}
