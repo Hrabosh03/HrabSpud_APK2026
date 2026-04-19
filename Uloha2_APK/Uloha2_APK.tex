@@ -1,0 +1,414 @@
+\documentclass[12pt]{article}
+\usepackage[czech]{babel}
+\usepackage{graphicx}
+\usepackage{parskip}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{microtype}
+\lstset{
+    language=Python,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},  
+    commentstyle=\color{gray},   
+    stringstyle=\color{red},   
+    breaklines=true,             
+    frame=single,
+    captionpos=b
+}
+
+\addto\captionsczech{
+\renewcommand{\lstlistingname}{Kód}}
+\pagestyle{empty}
+\begin{document}
+
+\begin{center}
+    {\large\scshape Univerzita Karlova} \\
+    {\large\scshape Přírodovědecká fakulta} \\
+
+    \includegraphics[width=0.7\textwidth]{logo_prf}
+        
+    {\large Algoritmy počítačové kartografie} \\
+    
+    \vspace{2cm}
+    
+    {\Large Úloha č. 2: Generalizace budov LOD0} \\    
+
+    \vspace{3cm}
+    
+    {\large Matěj Hrabal, Kateřina Spudilová} \\
+    {\large\scshape 1. n-gkdpz} \\
+    
+    \vfill
+    
+    {\large Praha 2026} \\
+\end{center}
+
+\newpage
+{\large\textbf{Zadání}}
+
+\begin{center}
+    \includegraphics[width=1\linewidth]{zadani2.png}
+\end{center}
+
+\underline {Údaje o bonusových úlohách}
+
+Byly řešeny všechny zadané bonusové úlohy. (max 55b)
+
+\newpage
+{\large \textbf {Teoretický rozbor problému}}
+
+\textbf{Generalizace obrysu budovy}
+
+Problém generalizace obrysů budov je zásadní úlohou v případech, kdy dochází k přechodu do menších měřítek, respektive ke snižování úrovně detailu modelu či mapy. Dochází tak k nutnosti nahradit komplikované půdorysy budov jejich geometricky jednoduššími reprezentacemi. Obvykle je nahrazován původní polygon budovy obdélníkem, který zachovává původní plošnou výměru a správnou orientaci vůči svému okolí. Pokud je budova součástí větší zástavby, je rovněž nezbytné, aby její generalizovaný tvar respektoval uliční čáru.
+
+\textbf{Konvexní obálka (\emph{Convex Hull})}
+
+Pro generalizační metody je zpravidla výpočetně neefektivní pracovat s původním členitým půdorysem budovy. Tento problém je řešen pomocí tzv. konvexní obálky. Konvexní obálka množiny $H(P)$ konečné množiny $P$ představuje konvexní mnohoúhelník $S$ s nejmenší plochou. Obálka tedy slouží ke snížení počtu vrcholů $n$, se kterými generalizační algoritmus dále počítá. K její konstrukci se využívají standardní algoritmy výpočetní geometrie. Mezi nejpoužívanější patří \emph{Jarvis Scan} či \emph{Graham Scan}.
+
+\underline{Jarvis Scan} 
+
+\emph{Jarvis Scan} (někdy též \emph{Gift Wrapping Algorithm}) je metoda dosahující časové složitosti $O(hn)$, kde $h$ představuje konečný počet bodů tvořících výslednou konvexní obálku. Tento algoritmus manipuluje s testovanými body v pořadí, v jakém za sebou geometricky následují na hraně konvexního mnohoúhelníku. Proces začíná výběrem výchozího bodu, kterým je definován bod s nejmenší souřadnicí na ose $x$, tedy bod ležící v datové sadě nejvíce vlevo. V každém dalším iteračním kroku algoritmus testuje všechny zbývající dostupné body v množině s cílem nalézt takový vrchol, který vůči aktuální hraně obálky minimalizuje vnější úhel. Jakmile je tento optimální bod nalezen, je trvale přidán do pole definujícího výstupní obálku a stává se novým referenčním bodem pro bezprostředně následující krok hledání. Tento iterativní proces postupného nabalování se opakuje do té doby, dokud se nalezeným navazujícím bodem nestane opět původní výchozí bod, čímž je celý polygon uzavřen.
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.8\linewidth]{JarvisScan.jpg}
+    \caption{Tvorba konvexní obálky metodou Jarvis Scan (GeeksforGeeks 2025)}
+\end{figure}
+
+\newpage
+\underline{Graham Scan}
+
+\emph{Graham Scan} je metoda dosahující časové složitosti $O(n \log n)$, kde $n$ představuje celkový počet vstupních bodů. Tento algoritmus k tvorbě obálky nevyužívá postupné prohledávání okolí, ale staví na počátečním předtřídění bodů a jejich následné filtraci pomocí datové struktury zásobníku. Proces začíná výběrem extrémního výchozího bodu, kterým je zpravidla definován bod s nejmenší souřadnicí na ose $y$ (při shodě se volí bod s nejmenší souřadnicí na ose $x$). Následně jsou všechny zbývající dostupné body v množině seřazeny na základě velikosti svého polárního úhlu orientovaného vůči tomuto výchozímu vrcholu. V samotném iteračním kroku algoritmus prochází setříděný seznam a u každé navazující trojice bodů vyhodnocuje jejich vzájemnou geometrickou orientaci. Pokud vrcholy tvoří levotočivou orientaci, je aktuální bod přidán na vrchol zásobníku a stává se součástí formující se obálky. Dojde-li naopak k detekci pravotočivé orientace, algoritmus uplatní princip navracení a odebírá ze zásobníku dříve přidané body tak dlouho, dokud není orientace hraniční lomené čáry opět levotočivá. Tento proces plynulého průchodu končí v momentě, kdy je úspěšně otestován poslední seřazený bod množiny, čímž vrcholy zbylé v zásobníku zadefinují finální uzavřený polygon.
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.8\linewidth]{GrahamScan.jpg}
+    \caption{Tvorba konvexní obálky metodou Graham Scan (GeeksforGeeks 2025)}
+\end{figure}
+
+\newpage
+\textbf{Detekce hlavního směru budovy}
+
+Po konstrukci konvexní obálky, která zredukuje složitost původního půdorysu, přistupuje generalizační algoritmus k detekci hlavního směru budovy. Tento směr (v případě pravoúhlé zástavby dva vzájemně kolmé směry) slouží k určení finální orientace zjednodušeného referenčního obdélníku tak, aby geometricky i topologicky respektoval své okolí a navazující uliční čáru.
+
+\underline{Minimum Area Enclosing Rectangle}
+
+Metoda minimálního opsaného obdélníku vychází z matematického teorému, který definuje, že pravoúhlý obdélník s nejmenší možnou plošnou výměrou opsaný libovolné konečné množině bodů musí mít vždy alespoň jednu ze svých stran striktně paralelní s některou z hran její konvexní obálky. K nalezení tohoto plošného optima algoritmus využívá princip iterativní rotace celého souřadnicového systému. Pro každý úhel, jenž odpovídá směrnici aktuálně testované hrany konvexní obálky, se provede výpočetní transformace všech vrcholů polygonu pomocí standardní matice rotace. V tomto dočasně pootočeném referenčním systému je následně zkonstruován ortogonální ohraničující obdélník (tzv. \emph{Minimum Bounding Box}). Jeho rozměry jsou dány extrémními souřadnicemi transformovaných bodů ve směrech os $x$ a $y$. U každého takto iterativně vygenerovaného ohraničujícího obdélníku je vypočten jeho obsah. Směrnice delší strany toho obdélníku, který napříč všemi otestovanými iteracemi nad hranami konvexní obálky dosahuje globálně nejmenší plochy, je algoritmem označena jako hlavní směr budovy.
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.5\linewidth]{MBR.jpg}
+    \caption{Minimum Bounding Box (Liu et al. 2010)}
+\end{figure}
+
+\underline{PCA (Analýza hlavních komponent)}
+
+Analýza hlavních komponent zkoumá prostorovou distribuci a rozptyl vrcholů tvořících polygon. Výhodou tohoto přístupu je jeho univerzálnost. Analýza začíná sestavením čtvercové kovarianční matice ${C}$ z prostorových souřadnic jednotlivých bodů půdorysu budovy. Tato matice charakterizuje míru společné variability souřadnic ve směrech os $x$ a $y$:$$C = \begin{bmatrix} C(X,X) & C(X,Y) \\ C(Y,X) & C(Y,Y) \end{bmatrix}$$ Výpočet jednotlivých prvků matice, reprezentujících kovarianci, je definován vztahem: $$C(X,Y) = \frac{1}{n-1}\sum_{i=1}^{n}(X_i - \mu_X)(Y_i - \mu_Y)$$ kde $\mu_X$ a $\mu_Y$ představují souřadnice těžiště analyzované množiny bodů. Následně je aplikován singulárního rozklad matice na vypočtenou kovarianční matici $C$. Tento rozklad transformuje matici do tvaru:$$C = U \Sigma V^T$$ V této rovnici tvoří ortogonální matice $U$ a $V$ soustavu vlastních vektorů, které určují směry rotace. Diagonální matice $\Sigma$ pak obsahuje singulární hodnoty, které odpovídají druhým odmocninám vlastních čísel ($\sqrt{\lambda_i}$) a reprezentují velikosti vlastních vektorů. Vlastní vektor příslušející k největšímu vlastnímu číslu ukazuje směr největšího rozptylu dat. Tento vektor je tedy identifikován jako první hlavní směr budovy. Druhý vlastní vektor, který je na něj kolmý, pak představuje druhý hlavní směr. Získaný úhel $\sigma$, který definuje odchylku prvního vlastního vektoru od původní osy $x$, je následně využit k sestavení matice rotace. Původní množina bodů polygonu je prostřednictvím této matice rotována o úhel $-\sigma$. V tomto transformovaném prostoru je sestrojen \emph{Minimum Bounding Box}, který je v posledním kroku zpětně rotován do původní polohy. 
+
+Zásadní nevýhoda PCA spočívá v situaci, kdy má analyzovaný objekt pravidelné či symetrické uspořádání bodů, rozptyl souřadnic v obou ortogonálních směrech je pak takřka totožný. Metoda pak selhává v určení dominantního směru.
+
+\underline{Longest Edge (Metoda nejdelší hrany)}
+
+Metoda nejdelší hrany uvažuje s předpokladem, že první hlavní směr budovy je definován její nejdelší stranou. Druhý hlavní směr je pak k této linii kolmý. Algoritmus pak prochází všechny hrany tvořící obrys půdorysu a na základě souřadnicových rozdílů vrcholů vypočítá jejich délku a vyhledá segment s maximální hodnotou. Směrnice této hrany je následně zafixována jako hlavní úhel natočení, podle kterého je orientován výsledný ohraničující obdélník.
+
+Slabinou této metody je fakt, že nejdelší hrana polygonu nemusí korespondovat s orientací objektu či s jeho uliční čarou. K selháním tak dochází zejména u více členitých půdorysů.
+
+\underline{Wall Average (Metoda průměru stěn)}
+
+Tato metoda analyzuje globální orientaci všech stěn budovy současně. Princip spočívá v redukci směrnic všech hran polygonu prostřednictvím operace modulo přes úhel $\frac{\pi}{2}$. Hrany svírající pravý úhel jsou tak matematicky převedeny do stejného referenčního kvadrantu. Výpočetní postup nejprve stanoví euklidovské délky $s_i$ a směrnice $\sigma_i$ pro všechny hrany polygonu. K určení odchylek je vypočítán násobek pravého úhlu $k_i = \frac{2\sigma_i}{\pi}$, ze kterého je následně získán zbytek po dělení $r_i = (k_i - \lfloor k_i \rfloor)\frac{\pi}{2}$. Dále je třeba ošetřit hraniční hodnoty – směrnice blížící se úhlům $0$ a $\frac{\pi}{2}$ značí totožný hlavní směr, proto jejich aritmetický průměr nesmí konvergovat k hodnotě $\frac{\pi}{4}$. Výsledný hlavní směr budovy $\sigma$ je posléze vypočítán jako vážený průměr redukovaných úhlových odchylek přičtených k referenční směrnici $\sigma_{ref}$. Váhou je přitom délka příslušné hrany $s_i$, čímž je zaručeno, že dlouhé stěny ovlivní výsledek zásadněji než krátké. Rovnice pro celkovou orientaci má tvar:$$\sigma = \sigma_{ref} + \frac{\sum_{i=1}^{n} r_i s_i}{\sum_{i=1}^{n} s_i}$$ Metoda \emph{Wall Average} je efektivní u fragmentovaných pravoúhlých půdorysů s mnoha výklenky, kde detekce jediné nejdelší hrany selhává.
+
+\underline{Weighted Bisector (Metoda vážené osy)}
+
+Metoda \emph{Weighted Bisector} se zaměřuje na analýzu vnitřních proporcí a celkového geometrického protažení polygonu prostřednictvím jeho úhlopříček. Cílem tohoto postupu je potlačit vliv lokálních tvarových anomálií a roztříštěných uličních fasád, které velmi často způsobují selhání např. metody \emph{Longest Edge}. Výpočetní algoritmus uvnitř polygonu budovy identifikuje dvě nejdelší spojnice vrcholů. Tyto dvě linie, definované svými délkami $s_1$ a $s_2$ a odpovídajícími úhlovými směrnicemi $\sigma_1$ a $\sigma_2$, tvoří základ pro určení finální orientace. Výsledný hlavní směr $\sigma$ je následně vypočítán jako vážený průměr směrnic těchto detekovaných úhlopříček, přičemž váhou je jejich fyzická délka. Matematicky je tento vztah definován rovnicí:$$\sigma = \frac{s_1\sigma_1 + s_2\sigma_2}{s_1 + s_2}$$ Tato metoda je účinná zejména u standardní pravoúhlé zástavby, kde tyto dvě nejdelší úhlopříčky přirozeně korelují s hlavními osami objektu a zachycují jeho globální orientaci spolehlivěji než kterákoliv jednotlivá stěna.
+
+\newpage
+\textbf{Data}
+
+Algoritmy jsou aplikovány na tři různé datové sady ve formátu SHP. Ty obsahují polygonové vrstvy budov, kde datová sada \emph{OlomoucCentrum} zobrazuje budovy v historickém centru Olomouce, sada \emph{OlomoucSidliste} zobrazuje převážně budovy panelového sídliště v Olomouci a sada \emph{OlomoucIzolZastavba} zachycuje menší izolované budovy v obci Dolany u Olomouce. Data pochází z Katastrální mapy ČR z webu ČÚZK.
+
+\begin{figure}[htbp]
+    \centering
+    \begin{minipage}[c]{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{OlomoucCentrum.png}
+        \small{Polygony budov v centru Olomouce}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[c]{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{OlomoucSidliste.png}
+        \small{Polygony budov na olomouckém sídlišti}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[c]{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{OlomoucIzolZastavba.png}
+        \small{Polygony budov v obci Dolany u Olomouce}
+    \end{minipage}
+
+    \caption{Vizualizace použitých datových sad (vlastní zpracování)}
+\end{figure}
+
+\textbf{Popis implementace algoritmů}
+
+ Řešení problému generalizace budov je realizováno v programovacím jazyce Python s využitím aplikačního rámce PyQt6. Tento framework poskytuje datové struktury pro práci s rovinnou geometrií, konkrétně třídy \texttt{QPointF} pro reprezentaci bodů a \texttt{QPolygonF} pro definici uzavřených polygonů.
+
+\underline{Řešení singulárních případů}
+
+Před spuštěním jakéhokoliv generalizačního algoritmu bylo nutné eliminovat topologické singulární případy u vstupních polygonů. Funkce \texttt{solveSingularCases} nejprve iterativně prochází všechny vrcholy a odstraňuje duplicitní body. Následně algoritmus odstraňuje kolineární vrcholy, kdy jsou pro každou trojici po sobě jdoucích bodů (předchozí, aktuální, následující) zkonstruovány dva směrové vektory. Pomocí vektorového součinu je pak testována kolinearita – pokud se absolutní hodnota křížového součinu blíží nule a skalární součin těchto vektorů je kladný, aktuální bod leží přesně na úsečce mezi svými sousedy. Tento bod je tedy z výsledného polygonu vynechán.
+
+\newpage
+\begin{lstlisting}[caption = Ukázka z funkce solveSingularCases]
+#Removing points that lie on the line between their neighbors
+cleaned_pts = []
+n = len(pts)
+for i in range(n):
+    p_prev = pts[(i - 1) % n]
+    p_curr = pts[i]
+    p_next = pts[(i + 1) % n]
+
+    v1_x = p_curr.x() - p_prev.x()
+    v1_y = p_curr.y() - p_prev.y()
+    v2_x = p_next.x() - p_curr.x()
+    v2_y = p_next.y() - p_curr.y()
+
+    cross = v1_x * v2_y - v1_y * v2_x
+    
+    #Check if the point is collinear with its neighbors and lies between them
+    dot = v1_x * v2_x + v1_y * v2_y
+
+    if abs(cross) < 1e-9 and dot > 0:
+        continue
+    
+    cleaned_pts.append(p_curr)
+
+#Change back to QPolygonF
+res = QPolygonF()
+for p in cleaned_pts:
+    res.append(p)
+    
+return res
+\end{lstlisting}
+
+\newpage
+
+\underline{Tvorba konvexní obálky}
+
+Tvorba konvexní obálky je zahájena vyčištěním vstupního polygonu od topologických singularit pomocí metody \texttt{solveSingularCases}. Pokud má polygon následně méně než tři vrcholy, je algoritmus ukončen a vrátí původní geometrii. Pro samotný výpočet je využívána metoda \texttt{createCH}, jež implementuje algoritmus \emph{Jarvis Scan}. Nejprve identifikuje počáteční pivot $q$, kterým je bod s minimální souřadnicí $y$. Následně vyhledá nejkrajnější levý bod (minimum v ose $x$), aby z těchto dvou souřadnic mohl zkonstruovat umělou výchozí referenční úsečku. V hlavní smyčce pak algoritmus prochází všechny dostupné vrcholy a prostřednictvím metody \texttt{get2VectorsAngle} hledá takový bod, který vůči aktuálně řešené hraně obálky svírá největší úhel. Tento nalezený optimální bod je přidán do objektu výstupní obálky (\texttt{QPolygonF}) a stává se novým referenčním vrcholem pro další krok. Cyklus se iterativně opakuje, dokud se algoritmus neuzavře úspěšným návratem do výchozího pivotu $q$. 
+
+\begin{lstlisting}[caption={Hlavní smyčka algoritmu Jarvis Scan}]
+#Find all points of CH
+while True:
+    #Maximum and its index
+    omega_max = 0
+    index_max = -1
+    
+    #Browse all points
+    for i in range(len(pol)):
+        
+        #Different points
+        if pj != pol[i]:
+            
+            #Compute omega
+            omega = self.get2VectorsAngle(pj, pj1, pj, pol[i])
+    
+            #Actualize maximum
+            if(omega > omega_max):
+                omega_max = omega
+                index_max = i
+            
+    #Add point to the convex hull
+    ch.append(pol[index_max])
+    
+    #Reasign points
+    pj1 = pj
+    pj = pol[index_max]
+    
+    # Stopping condition
+    if pj == q:
+        break
+    
+return ch
+\end{lstlisting}
+
+\newpage
+
+Jako alternativní výpočetní přístup byla vytvořena implementace Grahamova pochodu v metodě \texttt{createCHGraham}. Tento algoritmus vyhledává pivot s maximální souřadnicí $y$ a zbylé vrcholy setřídí podle polárního úhlu pomocí upravené funkce \texttt{atan2}. Konstrukce následně probíhá nad datovou strukturou zásobníku, kde je přes pomocnou metodu \texttt{isLeftTurn} a křížový součin vyhodnocována levotočivost lomené čáry. Tato metoda však slouží pouze jako algoritmická ukázka a prostřednictvím grafického uživatelského rozhraní ji nelze na data aplikovat.
+
+\underline{Minimum Area Enclosing Rectangle}
+
+Implementace tohoto algoritmu spočívá v řídicí metodě \texttt{simplifyBuildingMBR}, která po topologickém pročištění polygonu funkcí \texttt{solveSingularCases} volá analytickou metodu \texttt{createMBR}. Ta zkonstruuje konvexní obálku (\texttt{createCH}) a inicializuje výchozí obdélník (\texttt{createMMB}) pro uchování počátečního obsahu \texttt{area\_min} a úhlu \texttt{sigma\_min}. V následném cyklu algoritmus prochází všechny hrany obálky. Ze souřadnicových rozdílů $dx$ a $dy$ sousedních vrcholů je funkcí \texttt{atan2} vypočtena směrnice \texttt{-sigma}. Obálka je metodou \texttt{rotatePolygon} rotována o úhel \texttt{-sigma}, čímž je aktuální hrana zarovnána s osou $x$.
+
+Nad transformovaným tvarem je opět volána funkce \texttt{createMMB}. Pokud je plocha nového obdélníku menší než dosavadní minimum, algoritmus uloží jeho geometrii, plochu i úhel. Po otestování všech hran je nalezený obdélník zpětně rotován o úhel \texttt{sigma\_min} do původní orientace budovy. S výsledkem pak pracuje transformační funkce \texttt{resizeRectangle}, která s využitím obsahů z metody \texttt{getArea} přeškáluje vektory směřující z těžiště k rohům obdélníku pomocí odmocniny poměru ploch. Získaný objekt pak představuje generalizovanou reprezentaci s totožnou rozlohou, jakou měla původní budova.
+
+\begin{figure}[htbp]
+    \centering
+    \begin{minipage}[c]{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{MAER_Centrum.png}
+        \small{Aplikace MAER na historické centrum}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[c]{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{MAER_Sidliste.png}
+        \small{Aplikace MAER na sídliště}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[c]{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{MAER_IzolZastavba.png}
+        \small{Aplikace MAER na izolovanou zástavbu}
+    \end{minipage}
+
+    \caption{Vizualizace výsledků metody MAER (vlastní zpracování)}
+\end{figure}
+
+\newpage
+\underline{PCA (Analýza hlavních komponent)}
+
+Základním prvkem implementace algoritmu PCA je řídicí metoda \texttt{simplifyBuildingPCA}, která po topologickém pročištění polygonu funkcí \texttt{solveSingularCases} extrahuje souřadnice vrcholů do samostatných polí $X$ a $Y$. Tato pole jsou sdružena do matice, ze které je pomocí funkce \texttt{cov} vypočtena kovarianční matice. Na ni je následně aplikován singulární rozklad (\texttt{svd}), čímž algoritmus získá matici vlastních vektorů. Z prvního vlastního vektoru, který určuje směr největšího rozptylu dat, je funkcí \texttt{atan2} vypočtena směrnice hlavního směru budovy \texttt{sigma}. Původní polygon je poté metodou \texttt{rotatePolygon} rotován o úhel \texttt{-sigma}, čímž se jeho prostorové rozložení matematicky zarovná se souřadnicovými osami.
+
+Nad takto transformovaným tvarem je zavolána funkce \texttt{createMMB} pro sestrojení osově rovnoběžného obdélníku. Tento zkonstruovaný obdélník je následně zpětně rotován o úhel \texttt{sigma} do původní orientace. Stejně jako u předchozí metody je tento výsledek předán transformační funkci \texttt{resizeRectangle}, která s využitím plošných výměr z metody \texttt{getArea} přeškáluje vektory směřující z těžiště k rohům obdélníku pomocí odmocniny poměru ploch.
+
+\begin{figure}[htbp]
+    \centering
+    \begin{minipage}[c]{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{PCA_Centrum.png}
+        \small{Aplikace PCA na historické centrum}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[c]{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{PCA_Sidliste.png}
+        \small{Aplikace PCA na sídliště}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[c]{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{PCA_IzolZastavba.png}
+        \small{Aplikace PCA na izolovanou zástavbu}
+    \end{minipage}
+
+    \caption{Vizualizace výsledků metody PCA (vlastní zpracování)}
+\end{figure}
+
+\newpage
+\underline{Longest Edge}
+
+Základním bodem implementace je řídicí metoda \texttt{simplifyBuildingLongestEdge}, která po topologickém pročištění polygonu funkcí \texttt{solveSingularCases} analyzuje všechny jeho obvodové hrany. V cyklu algoritmus prochází jednotlivé úsečky tvořené sousedními vrcholy a na základě jejich souřadnic počítá jejich euklidovskou délku. Jakmile je identifikována nejdelší hrana v celém polygonu, je z jejích souřadnicových odchylek $dx$ a $dy$ pomocí funkce \texttt{atan2} vypočtena směrnice \texttt{sigma}, jež je stanovena jako hlavní směr budovy. Následně je celý polygon metodou \texttt{rotatePolygon} orotován o úhel \texttt{-sigma}, čímž se jeho nejdelší hrana matematicky zarovná s osou $x$.
+
+Nad takto transformovanou geometrií je zavolána funkce \texttt{createMMB} pro sestrojení osově rovnoběžného ohraničujícího obdélníku. Ten je bezprostředně poté zpětně rotován o úhel \texttt{sigma} do původní orientace. Nakonec je orientovaný obdélník předán transformační funkci \texttt{resizeRectangle}. Ta s využitím obsahů vypočtených metodou \texttt{getArea} přeškáluje vektory směřující z těžiště k rohům obdélníku pomocí odmocniny poměru ploch.
+
+\begin{figure}[htbp]
+    \centering
+    \begin{minipage}[c]{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{LE_Centrum.png}
+        \small{Aplikace Longest Edge na historické centrum}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[c]{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{LE_Sidliste.png}
+        \small{Aplikace Longest Edge na sídliště}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[c]{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{LE_IzolZastavba.png}
+        \small{Aplikace Longest Edge na izolovanou zástavbu}
+    \end{minipage}
+
+    \caption{Vizualizace výsledků metody Longest Edge (vlastní zpracování)}
+\end{figure}
+
+\newpage
+\underline{Wall Average}
+
+Řídicí metoda \texttt{simplifyBuildingWallAverage} po topologickém pročištění polygonů funkcí \texttt{solveSingularCases} analyzuje všechny jeho obvodové hrany. Algoritmus vypočítá euklidovské délky a ze souřadnicových rozdílů určí pomocí funkce \texttt{atan2} směrnice jednotlivých úseček, z nichž extrahuje referenční směr \texttt{-sigma\_ref}. Následně v cyklu prochází všechny hrany a jejich směrnice redukuje pomocí operace modulo přes úhel $\frac{\pi}{2}$, čímž vypočítá jejich úhlovou odchylku. Výsledný hlavní směr budovy \texttt{sigma} je poté stanoven jako vážený průměr těchto redukovaných odchylek přičtený k referenčnímu směru \texttt{sigma\_ref}, přičemž statistickou vahou je délka příslušné hrany.
+
+Původní polygon je posléze metodou \texttt{rotatePolygon} rotován o úhel \texttt{sigma}, načež je nad transformovanou geometrií zavolána funkce \texttt{createMMB} pro sestrojení osově rovnoběžného obdélníku, který je poté zpětně rotován o úhel \texttt{sigma} do původní orientace. Nakonec je orientovaný obdélník transformován transformační funkcí \texttt{resizeRectangle}. Ta s využitím obsahů vypočtených metodou \texttt{getArea} přeškáluje vektory směřující z těžiště k rohům obdélníku pomocí odmocniny poměru ploch.
+
+\begin{figure}[htbp]
+    \centering
+    \begin{minipage}[c]{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{WA_Centrum.png}
+        \small{Aplikace Wall Average na historické centrum}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[c]{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{WA_Sidliste.png}
+        \small{Aplikace Wall Average na sídliště}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[c]{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{WA_IzolZastavba.png}
+        \small{Aplikace Wall Average na izolovanou zástavbu}
+    \end{minipage}
+
+    \caption{Vizualizace výsledků metody Wall Average (vlastní zpracování)}
+\end{figure}
+
+\newpage
+\underline{Weighted Bisector}
+
+Na počátku implementace stojí řídicí metoda \texttt{simplifyBuildingWeightedBisector}, která po topologickém pročištění polygonu funkcí \texttt{solveSingularCases} analyzuje vnitřní proporce budovy. Algoritmus prochází všechny spojnice mezi vrcholy a identifikuje dvě nejdelší. U těchto dvou dominantních linií vypočítá jejich euklidovské délky $s_1$ a $s_2$ a ze souřadnicových rozdílů určí pomocí funkce \texttt{atan2} jejich směrnice $\sigma_1$ a $\sigma_2$. Výsledný hlavní směr budovy \texttt{sigma} je následně stanoven jako vážený průměr těchto dvou směrnic, přičemž vahou je právě jejich délka. Původní polygon je posléze metodou \texttt{rotatePolygon} rotován o úhel \texttt{-sigma}, čímž se jeho vypočtená osa zarovná se souřadnicovými osami.
+
+Nad transformovanou geometrií je zavolána funkce \texttt{createMMB} pro sestrojení osově rovnoběžného obdélníku, který je bezprostředně poté zpětně rotován o úhel \texttt{sigma} do původní orientace. V posledním kroku je orientovaný obdélník transformován funkcí \texttt{resizeRectangle}. Ta s využitím plošných výměr vypočtených metodou \texttt{getArea} přeškáluje vektory směřující z těžiště k rohům obdélníku pomocí odmocniny poměru ploch.
+
+\begin{figure}[htbp]
+    \centering
+    \begin{minipage}[c]{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{WB_Centrum.png}
+        \small{Aplikace Weighted Bisector na historické centrum}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[c]{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{WB_Sidliste.png}
+        \small{Aplikace Weighted Bisector na sídliště}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[c]{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{WB_IzolZastavba.png}
+        \small{Aplikace Weighted Bisector na izolovanou zástavbu}
+    \end{minipage}
+
+    \caption{Vizualizace výsledků metody Weighted Bisector (vlastní zpracování)}
+\end{figure}
+
+\newpage
+\textbf{Vyhodnocení a závěr}
+
+Při řešení úlohy Generalizace budov do úrovně detailu LODO bylo testováno celkem pět různých algoritmů na třech odlišných datových sadách, které zahrnovaly historické centrum Olomouce, olomoucké sídliště a izolovanou zástavbu v obci Dolany u Olomouce. Z testování vyplynuly určité výhody a nevýhody jednotlivých výpočetních přístupů v závislosti na geometrii a členitosti polygonů budov. 
+
+MAER je ideální pro izolovanou zástavbu a pravidelnější struktury sídlišť, kde celková orientace budovy logicky odpovídá minimalizaci jejího záboru plochy. U velmi asymetrických a členitých polygonů historických center však může metoda narážet na své limity, protože tvořená konvexní obálka a její hrany nemusí spolehlivě respektovat historickou uliční čáru.
+
+Analýza hlavních komponent naráží na nevýhody v situacích, kdy má analyzovaný polygon pravidelné nebo symetrické uspořádání bodů. V takovém případě je rozptyl souřadnic v obou směrech téměř totožný a metoda selhává v určení dominantního směru.
+
+Longest Edge vychází z předpokladu, že první hlavní směr budovy je definován její nejdelší stranou. Její slabinou je však fakt, že nejdelší hrana polygonu nemusí vždy korespondovat s orientací objektu či s uliční čarou, což vede k selhání algoritmu u členitějších půdorysů.
+
+Pro složitější pravoúhlé půdorysy s mnoha výklenky se ukázala být efektivní metoda Wall Average. Díky tomu, že analyzuje globální orientaci všech stěn současně a využívá jejich délku jako váhu, dokáže spolehlivě uspět i tam, kde selhává metoda Longest Edge.
+
+Obdobně robustní je metoda Weighted Bisector, která se zaměřuje na analýzu geometrického protažení polygonu prostřednictvím jeho úhlopříček. Jejím cílem je potlačit vliv lokálních tvarových anomálií.
+
+\newpage
+\textbf{Zdroje}
+
+ALZUBAIDI, A. M. N. (2014): Minimum Bounding Circle of 2D Convex Hull. International Journal of Science and Research (IJSR), 3(9): 364–367.
+
+DUCHÊNE, C. et al. (2003): Quantitative and qualitative description of building orientation. In: 5th Workshop on Progress in Automated Map Generalization. Paris: ICA.
+
+DURST, N. J. et al. (2024): The spatial and social correlates of neighborhood morphology: Evidence from building footprints in five U.S. metropolitan areas. PLoS ONE, 19(4): e0299713.
+
+KONG, L. et al. (2023): Simplification and Regularization Algorithm for Right-Angled Polygon Building Outlines with Jagged Edges. ISPRS International Journal of Geo-Information, 12(12): 469.
+\end{document}
