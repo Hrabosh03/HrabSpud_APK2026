@@ -1,0 +1,395 @@
+\documentclass[12pt]{article}
+\usepackage[czech]{babel}
+\usepackage{graphicx}
+\usepackage{parskip}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{microtype}
+\lstset{
+    language=Python,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},  
+    commentstyle=\color{gray},   
+    stringstyle=\color{red},   
+    breaklines=true,             
+    frame=single,
+    captionpos=b
+}
+
+\addto\captionsczech{
+\renewcommand{\lstlistingname}{Kód}}
+\pagestyle{empty}
+\begin{document}
+
+\begin{center}
+    {\large\scshape Univerzita Karlova} \\
+    {\large\scshape Přírodovědecká fakulta} \\
+
+    \includegraphics[width=0.7\textwidth]{logo_prf}
+        
+    {\large Algoritmy počítačové kartografie} \\
+    
+    \vspace{2cm}
+    
+    {\Large Úloha č. 3: Digitální model terénu} \\    
+
+    \vspace{3cm}
+    
+    {\large Matěj Hrabal, Kateřina Spudilová} \\
+    {\large\scshape 1. n-gkdpz} \\
+    
+    \vfill
+    
+    {\large Praha 2026} \\
+\end{center}
+
+\newpage
+{\large\textbf{1 Zadání}}
+
+\begin{center}
+    \includegraphics[width=1\linewidth]{zadani3.png}
+\end{center}
+
+\newpage
+\underline {Údaje o bonusových úlohách}
+
+Ze zadaných kroků byly řešeny následující:
+\begin{itemize}
+    \item Delaunay triangulace, polyedrický model terénu. (10b)
+    \item Konstrukce vrstevnic, analýza sklonu a expozice. (+10b)
+    \item Výběr barevných stupnic při vizualizaci sklonu a expozice. (+3b)
+    \item Automatický popis vrstevnic. (+3b)
+    \item Automatický popis vrstevnic respektující kartografické zásady (orientace, vhodné rozložení). (+10b)
+\end{itemize}
+
+\newpage
+{\large \textbf {2 Teoretický rozbor problému}}
+
+\textbf{2.1 Digitální model terénu}
+
+Digitální model terénu (DMT) představuje digitální reprezentaci zemského povrchu, která je tvořena diskrétní množinou bodů $P=\{p_{1},...,p_{n}\}$, přičemž každý z těchto bodů je jednoznačně definován svými prostorovými souřadnicemi $p_{i}=(x_{i},y_{i},z_{i})$. Nad takto získanou bodovou množinou se následně konstruuje polyedrický model, jenž je složen z rovinných trojúhelníkových plošek. Tato struktura, odborně označovaná jako TIN (Triangulated Irregular Network), vyniká oproti běžné rastrové reprezentaci zejména tím, že dokáže přesně zachovat původní polohu i výšku vstupních měřených bodů a současně přizpůsobovat hustotu vytvořených ploch skutečné lokální členitosti terénu. 
+
+\textbf{2.2 Delaunay triangulace}
+
+Delaunay triangulace je typem triangulace, jejímž účelem je maximalizace minimálního úhlu ve všech tvořených trojúhelnících. Díky této vlastnosti poskytuje výsledná síť vizuálně i numericky kvalitní výsledky, jelikož minimalizuje výskyt úzkých a neúměrně dlouhých trojúhelníků, které jsou z hlediska prostorové interpolace terénních dat nevhodné.
+
+Hlavním definičním kritériem tohoto algoritmu je kritérium prázdné kružnice, které pevně stanovuje, že kružnice opsaná libovolnému trojúhelníku v rámci sítě nesmí ve své ploše obsahovat žádný další bod ze zadané vstupní množiny.
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.4\linewidth]{Delaunay.png}
+    \caption{Delaunay triangulace (Minimo Graph 2013)}
+\end{figure}
+
+Z důvodu jednodušší algoritmizace se pak v praxi využívá ekvivalentní kritérium založené na maximalizaci úhlu nad protilehlou hranou. Během výpočtu se tak pro každou hranu, tvořenou body $p_{1}$ a $p_{2}$, hledá takový ideální třetí bod $p_{DT}$, pro nějž prokazatelně platí, že úhel $\angle(p_{1},p_{i},p_{2})$ dosahuje maximální hodnoty ze všech přípustných bodů $p_{i}$. Tento vztah lze matematicky zapsat jako:
+$$p_{DT}=\arg\max_{\forall p_{i}\in P}\angle(p_{1},p_{i},p_{2})$$.
+
+\newpage
+V rámci praktické realizace se z několika existujících přístupů velmi často uplatňuje metoda inkrementální konstrukce, která využívá seznam aktivních hran (Active Edge List - AEL). Tento iterativní proces je zahájen vyhledáním pivotu $q$, což je bod disponující minimální souřadnicí na ose $y$, a následně lokalizací jeho nejbližšího souseda $q_{n}$. Hrana spojující tyto dva body tak tvoří součást konvexní obálky celé množiny a stává se výchozí hranou pro další iterace. Následně je k této hraně v její levé polorovině vyhledán optimální bod $p_{DT}$ splňující Delaunayovo kritérium, čímž je definován první platný trojúhelník.
+
+Nově vzniklé hrany jsou vloženy do seznamu AEL k dalšímu zpracování. Pokud však program při procházení seznamu narazí na hranu, která se v něm již nachází, avšak s opačnou orientací, znamená to, že daná hrana byla úspěšně zpracována z obou svých stran a dochází k jejímu vyřazení. Algoritmus pak takto pokračuje krok za krokem, a to až do okamžiku, kdy je seznam aktivních hran prázdný.
+
+\textbf{2.3 Konstrukce vrstevnic}
+
+Vrstevnice jsou definovatelné jako čáry, které ve 2D prostoru spojují body o totožné nadmořské výšce. Matematicky je taková čára průsečnicí modelované plochy DMT se zvolenou vodorovnou rovinou o konstantní výšce $z=z_{k}$.
+
+Nad trojúhelníkovou sítí TIN jsou tyto vrstevnice konstruuovány prostřednictvím lineární interpolace probíhající iterativně po jednotlivých trojúhelnících. U každého zpracovávaného trojúhelníku, jenž je určen vrcholy $P_{1}$, $P_{2}$ a $P_{3}$, a pro každou iterovanou výšku $z$, program nejprve ověřuje, zda rovina s trojúhelníkem koliduje. K tomu slouží výpočet výškových rozdílů definovaných rovnicí $\Delta z_{i}=z-z_{i}$, kde $i\in\{1,2,3\}$. Rovina se s trojúhelníkem protíná tehdy, pokud tyto vypočtené rozdíly na dvou různých hranách vykazují navzájem opačné znaménko. Souřadnice samotného průsečíku $b$ na úsečce určené body $p_{1}$ a $p_{2}$ jsou pak odvozeny ze vztahů pro lineární interpolaci:   $$x_{b}=\frac{x_{2}-x_{1}}{z_{2}-z_{1}}(z-z_{1})+x_{1}$$$$y_{b}=\frac{y_{2}-y_{1}}{z_{2}-z_{1}}(z-z_{1})+y_{1}$$
+
+Identickým postupem je následně získána i poloha druhého průsečíku na obvodu plochy, přičemž jejich spojnice utvoří segment vrstevnice náležící konkrétnímu trojúhelníku. Celý proces probíhá automaticky od minimální do maximální nalezené výšky v datech. V rámci zajištění správných kartografických standardů aplikace implementuje i odlišení hlavních a vedlejších vrstevnic, kdy je každá pátá výšková úroveň vykreslována nápadněji, což uživateli výrazně usnadňuje prostorovou orientaci v mapě.
+
+\newpage
+\textbf{2.4 Analýza sklonu}
+
+Sklon terénu definuje maximální úhel mezi zkoumanou rovinou trojúhelníku $\rho$ a horizontální rovinou $\pi$. Pro výpočet se vychází z předpokladu, že rovina $\rho$ procházející body $p_{1}$, $p_{2}$ a $p_{3}$ je jednoznačně určena svým normálovým vektorem, který je odvoditelný vektorovým součinem dvou přilehlých hran podle vztahu:   $$\vec{n}_{1}=(a,b,c)=p_{1}\vec{p}_{2}\times p_{1}\vec{p}_{3}$$ 
+Horizontální rovina $\pi$ naproti tomu disponuje pevným normálovým vektorem $\vec{n}_{2}=(0,0,1)$. Samotný úhel sklonu, označený jako $\varphi$, je posléze přímo roven úhlu sevřenému těmito dvěma normálami. Jeho přesná hodnota je vypočtena dle rovnice   $$\varphi=\arccos\frac{\vec{n}_{1}\cdot\vec{n}_{2}}{|\vec{n}_{1}|\cdot|\vec{n}_{2}|}=\arccos\frac{c}{\sqrt{a^{2}+b^{2}+c^{2}}}$$ 
+
+Hraniční hodnota $\varphi=0$ pak indikuje dokonale vodorovnou plochu, zatímco hodnota $\varphi=\pi/2$ poukazuje na stěnu s absolutně svislým sklonem. Vypočtená data jsou nakonec interpretována a vizualizována za pomoci proměnné stupnice šedi, kde intenzita tmavosti přímo úměrně odráží aktuální strmost daného svahu.
+
+\textbf{2.5 Analýza expozice}
+
+Expozice terénu definuje orientaci daného polygonu vůči hlavním světovým stranám. Expozice je tedy azimut průmětu spádového gradientu $\nabla\rho$ do vodorovné souřadnicové roviny $xy$. Hodnota azimutu rozeznává celé kruhové spektrum, kde $0^{\circ}$ značí striktně severní orientaci, zatímco úhly $90^{\circ}$, $180^{\circ}$ a $270^{\circ}$ odpovídají východnímu, jižnímu a západnímu svahu. Plošný průmět matematického gradientu je dán vektorem $\vec{v}=(a,b,0)$. Celkový azimut expozice $A$, měřený po směru chodu hodinových ručiček od osy $y$, je pak definován závislostí $A=\arctan(a/b)$ 
+
+Aby software dokázal určit všechny možné případy ve čtyřech různých kvadrantech a provedl i nezbytnou normalizaci výsledku do uzavřeného intervalu, je při programové realizaci použita robustnější goniometrická funkce $\text{atan2}$. Jelikož v aplikacích pracujících se zobrazením na monitoru osa $y$ neroste směrem nahoru k severu, jako je tomu v geografii, nýbrž směrem dolů, je nutné tento nesoulad vyrovnat. Je tedy třeba aplikovat inverzi směru osy $y$, čímž vznikne vztah ve formátu   $$A=\text{atan2}(a,-b)$$ Tato korekce garantuje, že všechny severně orientované svahy budou i na finálním kresebném plátně směřovat vzhůru. Interpretace tohoto výstupu probíhá pomocí diskrétní palety osmi barev, z nichž každá reprezentuje jeden definovaný výsek světové strany. 
+
+\newpage
+{\large \textbf {3 Data}}
+
+Testovacím souborem pro následné analýzy je soubor \emph{bodovePole.txt}, který obsahuje množinu 400 bodů, které jsou definovány souřadnicemi $X$, $Y$, $Z$ v souřadnicovém systému jednotné trigonometrické sítě katastrální. Body byly staženy z aplikace Geoprohlížeč Geoportálu ČÚZK, a to konkrétně z datové sady DMR5G ve formátu .las, odkud byly převedeny na zmíněný formát .txt. Zachycují plochu o rozloze asi 120 km$^2$ ležící severozápadně od hory Praděd v Hrubém Jeseníku.
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.5\linewidth]{bodovePole.png}
+    \caption{Bodové pole použité k analýzám (vlastní tvorba)}
+\end{figure}
+
+{\large \textbf{4 Popis implementace algoritmů}}
+
+\textbf{4.1 Delaunay triangulace}
+
+\textbf{Input:} množina bodů $P$ \\
+\textbf{Output:} Delaunay triangulace
+
+\begin{enumerate}
+    \item inicializuj $DT \leftarrow \emptyset$, $AEL \leftarrow \emptyset$
+    \item nalezni pivot $q$ z množiny $points$ s minimální $y$-souřadnicí
+    \item $qn \leftarrow \text{getNearestPoint}(q, points)$
+    \item vytvoř nové hrany $e = \text{Edge}(q, qn)$ a $es = \text{Edge}(qn, q)$
+    \item přidej $e$ a $es$ do $AEL$
+    \item \textbf{while} $AEL$ není prázdný \textbf{do}
+    \item \quad $e_1 \leftarrow AEL.\text{pop}()$
+    \item \quad změň orientaci: $e_{1s} \leftarrow e_1.\text{switchOrientation}()$
+    \item \quad $p_{dt} \leftarrow \text{findDelaunayPoint}(e_{1s}.\text{getStart}(), e_{1s}.\text{getEnd}(), points)$
+    \item \quad \textbf{if} $p_{dt} == \text{None}$ \textbf{then continue}
+    \item \quad vytvoř nové hrany $e_2 = \text{Edge}(e_{1s}.\text{getEnd}(), p_{dt})$ a $e_3 = \text{Edge}(p_{dt}, e_{1s}.\text{getStart}())$
+    \item \quad přidej $e_{1s}$, $e_2$ a $e_3$ do $DT$
+    \item \quad $\text{updateAEL}(e_2, AEL)$
+    \item \quad $\text{updateAEL}(e_3, AEL)$
+    \item \textbf{end while}
+\end{enumerate}
+    
+\textbf{4.2 Nalezení Delaunayova bodu}
+
+\textbf{Input:} body $P$, hrana $(p_1, p_2)$ \\
+\textbf{Output:} bod $p_{DT}$
+
+\begin{enumerate}
+    \item $p_{dt} \leftarrow \text{None}$, $\varphi_{max} \leftarrow 0$
+    \item \textbf{for} $p_i \in points$ \textbf{do}
+    \item \quad \textbf{if} $p_i \neq p_1$ \textbf{and} $p_i \neq p_2$ \textbf{then}
+    \item \quad \quad \textbf{if} $\text{getPointLinePosition}(p_i, p_1, p_2) == 1$ \textbf{then}
+    \item \quad \quad \quad $\varphi \leftarrow \text{get2LinesAngle}(p_i, p_2, p_i, p_1)$
+    \item \quad \quad \quad \textbf{if} $\varphi > \varphi_{max}$ \textbf{then}
+    \item \quad \quad \quad \quad $\varphi_{max} \leftarrow \varphi$, $p_{dt} \leftarrow p_i$
+    \item \quad \quad \quad \textbf{end if}
+    \item \quad \quad \textbf{end if}
+    \item \quad \textbf{end if}
+    \item \textbf{end for}
+\end{enumerate}
+
+\textbf{4.3 Aktualizace seznamu aktivních hran}
+
+\textbf{Input:} hrana $e$, seznam $AEL$
+
+\begin{enumerate}
+    \item $es \leftarrow e.\text{switchOrientation}()$
+    \item \textbf{if} $es \in AEL$ \textbf{then}
+    \item \quad $AEL.\text{remove}(es)$
+    \item \textbf{else}
+    \item \quad $AEL.\text{append}(e)$
+    \item \textbf{end if}
+\end{enumerate}
+
+\newpage
+\textbf{4.4 Konstrukce vrstevnic}
+
+\textbf{Input:} triangulace $DT$, $z_{min}$, $z_{max}$, krok $dz$ \\ \textbf{Output:} seznam vrstevnic
+
+\begin{enumerate}
+    \item \textbf{for} $z \in \text{range}(\text{int}(z_{min}), \text{int}(z_{max}), dz)$ \textbf{do}
+    \item \quad \textbf{for} $i \in \text{range}(0, \text{len}(DT), 3)$ \textbf{do}
+    \item \quad \quad $p_1 \leftarrow DT[i].\text{getStart}()$, $p_2 \leftarrow DT[i+1].\text{getStart}()$, $p_3 \leftarrow DT[i+1].\text{getEnd}()$
+    \item \quad \quad $dz_1 \leftarrow z - p_1.z()$, $dz_2 \leftarrow z - p_2.z()$, $dz_3 \leftarrow z - p_3.z()$
+    \item \quad \quad \textbf{if} $dz_1 == 0$ \textbf{and} $dz_2 == 0$ \textbf{and} $dz_3 == 0$ \textbf{then continue}
+    \item \quad \quad \textbf{else if} $dz_1 == 0$ \textbf{and} $dz_2 == 0$ \textbf{then}
+    \item \quad \quad \quad $contour\_lines.\text{append}(DT[i])$
+    \item \quad \quad \textbf{else if} $dz_2 == 0$ \textbf{and} $dz_3 == 0$ \textbf{then}
+    \item \quad \quad \quad $contour\_lines.\text{append}(DT[i+1])$
+    \item \quad \quad \textbf{else if} $dz_3 == 0$ \textbf{and} $dz_1 == 0$ \textbf{then}
+    \item \quad \quad \quad $contour\_lines.\text{append}(DT[i+2])$
+    \item \quad \quad \textbf{else if} $(dz_1 \cdot dz_2 < 0$ \textbf{and} $dz_2 \cdot dz_3 < 0)$ \textbf{or} $(dz_1 == 0$ \textbf{and} $dz_2 \cdot dz_3 < 0)$ \textbf{then}
+    \item \quad \quad \quad $\text{createContourLineSegment}(p_1, p_2, p_3, z, contour\_lines)$
+    \item \quad \quad \textbf{else if} $(dz_2 \cdot dz_3 < 0$ \textbf{and} $dz_3 \cdot dz_1 < 0)$ \textbf{or} $(dz_2 == 0$ \textbf{and} $dz_3 \cdot dz_1 < 0)$ \textbf{then}
+    \item \quad \quad \quad $\text{createContourLineSegment}(p_2, p_3, p_1, z, contour\_lines)$
+    \item \quad \quad \textbf{else if} $(dz_3 \cdot dz_1 < 0$ \textbf{and} $dz_1 \cdot dz_2 < 0)$ \textbf{or} $(dz_3 == 0$ \textbf{and} $dz_1 \cdot dz_2 < 0)$ \textbf{then}
+    \item \quad \quad \quad $\text{createContourLineSegment}(p_3, p_1, p_2, z, contour\_lines)$
+    \item \quad \quad \textbf{end if}
+    \item \quad \textbf{end for}
+    \item \textbf{end for}
+\end{enumerate}
+
+\newpage
+\textbf{4.5 Analýza sklonu}
+
+\textbf{Input:} triangulace $DT$, převodní koeficient měřítka $k$ \\
+\textbf{Output:} seznam trojúhelníků s přiřazeným sklonem
+
+\begin{enumerate}
+    \item $triangles \leftarrow \emptyset$
+    \item \textbf{for} $i \in \text{range}(0, \text{len}(DT), 3)$ \textbf{do}
+    \item \quad $p_1 \leftarrow DT[i].\text{getStart}()$, $p_2 \leftarrow DT[i+1].\text{getStart}()$, $p_3 \leftarrow DT[i+1].\text{getEnd}()$
+    \item \quad $t \leftarrow \text{Triangle}(p_1, p_2, p_3)$
+    \item \quad $p_{1\_real} \leftarrow \text{QPoint3DF}(p_1.x() \cdot pixel\_to\_meter, p_1.y() \cdot pixel\_to\_meter, p_1.z())$
+    \item \quad $p_{2\_real} \leftarrow \text{QPoint3DF}(p_2.x() \cdot pixel\_to\_meter, p_2.y() \cdot pixel\_to\_meter, p_2.z())$
+    \item \quad $p_{3\_real} \leftarrow \text{QPoint3DF}(p_3.x() \cdot pixel\_to\_meter, p_3.y() \cdot pixel\_to\_meter, p_3.z())$
+    \item \quad $nx, ny, nz \leftarrow \text{getPlaneNormal}(p_{1\_real}, p_{2\_real}, p_{3\_real})$
+    \item \quad $norm \leftarrow (nx^2 + ny^2 + nz^2)^{0.5}$
+    \item \quad \textbf{if} $norm > 0$ \textbf{then}
+    \item \quad \quad $arg \leftarrow |nz| / norm$
+    \item \quad \quad $arg \leftarrow \max(-1.0, \min(1.0, arg))$
+    \item \quad \quad $slope \leftarrow \arccos(arg) \cdot (180 / \pi)$
+    \item \quad \textbf{else}
+    \item \quad \quad $slope \leftarrow 0.0$
+    \item \quad \textbf{end if}
+    \item \quad $t.\text{setSlope}(slope)$
+    \item \quad $triangles.\text{append}(t)$
+    \item \textbf{end for}
+\end{enumerate}
+
+\newpage
+\textbf{4.6 Analýza expozice}
+
+\textbf{Input:} triangulace $DT$ \\
+\textbf{Output:} seznam trojúhelníků s přiřazenou expozicí
+
+\begin{enumerate}
+    \item $triangles \leftarrow \emptyset$
+    \item \textbf{for} $i \in \text{range}(0, \text{len}(DT), 3)$ \textbf{do}
+    \item \quad $p_1 \leftarrow DT[i].\text{getStart}()$, $p_2 \leftarrow DT[i+1].\text{getStart}()$, $p_3 \leftarrow DT[i+1].\text{getEnd}()$
+    \item \quad $t \leftarrow \text{Triangle}(p_1, p_2, p_3)$
+    \item \quad $nx, ny, nz \leftarrow \text{getPlaneNormal}(p_1, p_2, p_3)$
+    \item \quad $aspect \leftarrow \text{atan2}(nx, ny)$
+    \item \quad \textbf{if} $aspect < 0$ \textbf{then}
+    \item \quad \quad $aspect \leftarrow aspect + 2\pi$
+    \item \quad \textbf{end if}
+    \item \quad $t.\text{setAspect}(aspect)$
+    \item \quad $triangles.\text{append}(t)$
+    \item \textbf{end for}
+\end{enumerate}
+
+\newpage
+{\large \textbf{5 Dokumentace}}
+
+\textbf{5.1 Třída Triangle}
+
+Třída reprezentuje datovou strukturu trojúhelníku zadaného třemi vrcholy $p_{1}$, $p_{2}$ a $p_{3}$. Vedle samotné geometrie trvale uchovává i jeho vypočtené morfometrické atributy pro potřeby následné vizualizace, a to sklon a expozici.
+
+\textbf{5.2 Třída Edge}
+
+Třída reprezentuje orientovanou prostorovou hranu zadanou počátečním a koncovým bodem. Obsahuje gettery pro získání obou definujících bodů, funkční metodu \texttt{switchOrientation()} pro operativní přehození směru hrany a operátor rovnosti \texttt{\_\_eq\_\_} pro test topologické identity dvou hran.
+
+\textbf{5.3 Třída QPoint3DF}
+
+Třída rozšiřuje třídu \texttt{QPointF} z knihovny PyQt6 o třetí rozměr reprezentující výškovou souřadnici $z$. Tímto je umožněna reprezentace geodetických bodů ve 3D prostoru při zachování dědičnosti a kompatibility s funkcemi pro nativní vykreslování ve 2D plátně.
+
+\textbf{5.4 Třída Algorithms}
+
+Tato třída v sobě zapouzdřuje algoritmickou logiku řešené úlohy.
+
+\begin{itemize}
+    \item \texttt{getPointLinePosition(a, b, p)} určí polohu testovaného bodu vůči orientované přímce pomocí výpočtu polorovinného determinantu.
+    \item \texttt{getNearestPoint(p, points)} nalezne a vrátí nejbližší bod k zadanému bodu na základě euklidovské vzdálenosti.
+    \item \texttt{get2LinesAngle(p1, p2, p3, p4)} spočítá úhel sevřený dvěma přímkami definovanými čtveřicí bodů s využitím skalárního součinu.
+    \item \texttt{findDelaunayPoint(p1, p2, points)} v levé polorovině aktivní hrany iterativně nalezne bod splňující Delaunayovo kritérium maximálního úhlu.
+    \item \texttt{createDT(points)} vytvoří a vrátí Delaunay triangulaci s využitím metody inkrementální konstrukce a dynamického seznamu aktivních hran.
+    \item \texttt{updateAEL(e, AEL)} spravuje a aktualizuje seznam aktivních hran. Pokud je nová hrana v seznamu nalezena v opačném směru, dojde k jejímu vymazání z paměti.
+    \item \texttt{getContourPoint(p1, p2, z)} vypočte souřadnice průsečíku zvolené hrany s horizontální referenční rovinou o výšce $z$.
+    \item \texttt{createContourLines(DT, z\_min, z\_max, dz)} v zadaném vertikálním intervalu a s definovaným krokem $dz$ vygeneruje množinu vrstevnic prostřednictvím lineární interpolace probíhající na hranách.
+    \item \texttt{createContourLineSegment(p1, p2, p3, z, contour\_lines)} identifikuje kolizní hrany a vytvoří jeden izolovaný segment vrstevnice uvnitř plochy jednoho trojúhelníku.
+    \item \texttt{getPlaneNormal(p1, p2, p3)} pomocí výpočtu vektorového součinu určí normálový vektor roviny procházející zadanou trojicí bodů.
+    \item \texttt{analyzeSlope(DT, pixel\_to\_meter)} provede analýzu sklonu všech trojúhelníků, přičemž transformuje obrazové pixely na reálné metrické vzdálenosti pro zachování správného měřítka.
+    \item \texttt{analyzeAspect(DT)} provede plošnou analýzu expozice odvozením rovinného azimutu z normálového vektoru u všech trojúhelníků v síti.
+    \item \texttt{getContourLabels(main\_contours)} analyzuje segmenty hlavních vrstevnic a u těch dostatečně dlouhých vypočítá směrový úhel pro korektní prostorové umístění textového popisku.
+\end{itemize}
+
+\textbf{5.5 Třída Draw}
+
+Třída je odvozena od třídy \texttt{QWidget} a zodpovídá za grafické a vykreslovací operace na plátně.
+
+\begin{itemize}
+    \item \texttt{mousePressEvent(e)} umožňuje manuální přidání terénního bodu levým kliknutím myši. Výšková hodnota bodu je generována náhodně v předem určeném rozsahu $z_{min}$ a $z_{max}$.
+    \item \texttt{paintEvent(e)} zajišťuje kompletní překreslení plátna. Vykresluje objekty v pořadí: vícestupňově barevné plochy sklonu (od bílé po černou) nebo plochy expozice barevně definované HSV modelem, okraje hran triangulační sítě, běžné vrstevnice, zvýrazněné hlavní vrstevnice, maskované textové popisky vrstevnic s vizuálním haló efektem, a nakonec červené body měření.
+    \item \texttt{clearResult()} a \texttt{clearAll()} slouží k vymazání analytických výsledků ze zobrazení, respektive k celkovému smazání datové paměti včetně vstupních bodů.
+\end{itemize}
+
+\textbf{5.6 Třída Ui\_MainWindow}
+
+Třída realizuje grafické uživatelské rozhraní aplikace (GUI) a zajišťuje komunikační propojku mezi zobrazovacím plátnem \texttt{Draw} a matematickým jádrem \texttt{Algorithms}.
+
+\begin{itemize}
+    \item \texttt{createDTClick()} zachytí vstupní body a inicializuje výpočet Delaunay triangulace.
+    \item \texttt{createContourLinesClick()} nad hotovou triangulací vypočítá obě sady vrstevnic (vedlejší s nastavitelným krokem a hlavní s pevným krokem 100), vygeneruje popisky a odešle data k vykreslení.
+    \item \texttt{createSlopeClick()} a \texttt{createAspectClick()} inicializují provedení morfometrických analýz sítě. Obsahují vnitřní logiku, která zamezuje překrývání vrstev tím, že se vzájemně automaticky vypínají.
+    \item \texttt{openTextFileClick()} aktivuje systémový dialog pro výběr souboru, parsuje textová prostorová data, určuje jejich hraniční souřadnice a pomocí výpočtu afinní transformace přeškáluje data z S-JTSK přímo do lokálních pixelů plátna. Zároveň ukládá zjištěné měřítko do proměnné \texttt{pixel\_to\_meter}.
+    \item \texttt{openSettingsClick()} aktivuje dodatečné interaktivní okno \texttt{settingsDialog} sloužící pro manuální parametrizaci minimální a maximální výšky a kroku vrstevnic.
+\end{itemize}
+
+{\large \textbf{6 Výsledky}}
+
+\begin{figure}[!ht]
+    \centering
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{AppDelauney.png}
+        \caption{Výsledek tvorby Delaunayovy triangulace (vlastní tvorba)}
+    \end{minipage}\hfill
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{AppContours.png}
+        \caption{Výsledek tvorby vrstevnic (vlastní tvorba)}
+    \end{minipage}
+\end{figure}
+
+\begin{figure}[!ht]
+    \centering
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{AppSlope.png}
+        \caption{Výsledek analýzy sklonu (vlastní tvorba)}
+    \end{minipage}\hfill
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{AppAspect.png}
+        \caption{Výsledek analýzy expozice (vlastní tvorba)}
+    \end{minipage}
+\end{figure}
+
+\newpage
+K vizualizaci výsledků analýzy expozice byl použit HSV model (viz Obrázek 7)
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.25\linewidth]{legend_aspect.png}
+    \caption{Legenda k anaýze expozice (vlastní tvorba)}
+\end{figure}
+
+{\large \textbf{7 Vyhodnocení výsledků a závěr}}
+
+Ačkoliv Delaunay triangulace generuje nad množinou vstupních bodů vizuálně i matematicky optimální trojúhelníkovou síť, kdy maximalizuje minimální úhel, tento přístup při plošné reprezentaci reálného reliéfu vykazuje několik nedostatků.
+
+\textbf{Skalní stěny, převisy, jeskyně}: Model předpokládá, že každé souřadnici $(x, y)$ náleží právě jedna hodnota výšky $z$. Z tohoto důvodu nedokáže vymodelovat převis – prostorové body spojuje nerealisticky do uzavřené šikmé plochy.
+
+Převis se nepodařilo nasimulovat, jelikož aplikace při pokusu o Delaunay triangulace kolabuje, důvodem jsou pravděpodobně vznikající trojúhelníky o nulovém obsahu.
+
+\textbf{Ostré hřbety, údolnice}: Pokud nejsou body měření v ose údolí nebo na vrcholu hřbetu dostatečně husté, algoritmus tyto morfologické útvary ignoruje a vyhladí je tím, že spojí body napříč těmito liniemi.
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.5\linewidth]{Hrbetnice.png}
+    \caption{Příklad ignorování hřbetnice (vlastní tvorba, \emph{HrbetniceBody.txt})}
+\end{figure}
+
+\newpage
+\textbf{Nekonvexní hranice území}: Algoritmus automaticky vyplňuje konvexní obálku nad danou množinou bodů. V případě konkávních oblastí tak generuje rozsáhlé "falešné" trojúhelníky překlenující hluchá místa bez vstupních dat, čímž vznikají smyšlené interpolace neodpovídající realitě.
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.5\linewidth]{NekonvexHranice.png}
+    \caption{Příklad falešné interpolace (vlastní tvorba, \emph{NekonvexTerenBody.txt})}
+\end{figure}
+
+Funkčnost implementovaných algoritmů byla úspěšně otestována ve vytvořené aplikaci využívající grafické rozhraní PyQt6. Aplikace umožňuje vytvoření Delaunay triangulace, vytvoření vrstevnic i s popisy respektujícími kartografické zásady, analýzu sklonu a expozice pro uživatelem vložený .txt soubor s bodovým polem o XYZ souřadnicích. Uživateli je zároveň umožněno nastavit rozmezí nadmořských výšek, ve kterých se budou vrstevnice generovat a jejich krok.
+
+\newpage
+{\large \textbf{Zdroje}}
+
+LI, Z., ZHU, Q., GOLD, C. M. (2004): Digital Terrain Modeling: Principles and Methodology. CRC Press, Boca Raton.
+
+MINIMO GRAPH (2013): The Math Behind the Art :: Works by Jonathan Puckey. \\
+https://minimograph.wordpress.com/2013/06/17/puckey/
+
+RAPANT, P. (2006): Geoinformatika a geoinformační technologie. VŠB-TU Ostrava, Ostrava.
+
+SHEWCHUK, J. R. (1996): Triangle: Engineering a 2D Quality Mesh Generator and Delaunay Triangulator. Applied Computational Geometry Towards Manufacturing. Springer, Berlin, 203–222.
+
+\end{document}
